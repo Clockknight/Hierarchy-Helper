@@ -1,6 +1,9 @@
+import json
 import os
-import memoryfuncs
 import discord
+from discord.ext import commands as cmd
+import disnake
+from disnake.ext import commands
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -9,7 +12,7 @@ intents = discord.Intents.default()
 intents.guilds = True
 intents.members = True
 intents.presences = True
-client = discord.Client(intents=intents)
+client = cmd.Bot(command_prefix='$', intents=intents, help_command=None)
 
 
 @client.event
@@ -27,27 +30,30 @@ async def on_message(message):
         chunks = msg.split(' ')
         match chunks[0].lower():
             case "!help":
-                await message.channel.send('''Test
-string''')
+                # TODO write actual help
+                await message.channel.send('''Teststring''')
             case "!relate":
                 if len(chunks) == 4:
-                    server = message.channel.guild
+                    server = str(message.channel.guild)
                     role1 = parserole(message, chunks[1])
                     role2 = parserole(message, chunks[2])
                     relation = chunks[3]
 
                     await message.channel.send('Processing...')
 
-                    #TODO save this information in a json
-                    dict = {role1.id: {role2.id:relation}}
-                    #go to json with guild id
-                    #go to key with role1
-                    #go to nested key with role2
-                    #store role2
+                    # TODO save this information in a json
+                    dict = {role1.id: {role2.id: relation}}
+                    writejson(server, dict)
+                    # go to key with role1
+                    # go to nested key with role2
+                    # store role2
 
                     await message.channel.send('Saved!')
 
-                    #TODO brainstorm role exceptions to consider
+                    # TODO brainstorm role exceptions to consider
+                    # if role1, give role2
+                    # if role1, remove role2
+                    # role2 = role1
 
                     return
                 else:
@@ -72,7 +78,7 @@ string''')
                     await message.channel.send('Error: No such role found.')
                     return
                 else:
-                    await message.author.add_roles(targetrole, reason="hierarchy helper getme command")
+                    await message.author.add_roles(targetrole, reason="hierarchy helper giveme command")
 
             case _:
                 await message.channel.send('Invalid command, please use \"!Help\" for a list of commands.')
@@ -81,17 +87,34 @@ string''')
 @client.event
 async def on_member_update(before, after):
     # TODO Bot notices when someone has a role added or removed
+    print(before)
     print(after.roles)
     if len(before.roles) < len(after.roles):
         newRole = next(role for role in after.roles if role not in before.roles)
         if newRole.name == "Respected":
             print('ping')
-            # This uses the name, but you could always use newRole.id == Roleid here
-            # Now, simply put the code you want to run whenever someone gets the "Respected" role here
+
+
+@client.command(name="ping")
+async def ping(ctx):
+    print('p')
+
+
+'''
+@bot.command()
+async def test(ctx):
+    print('test')
+    pass
+
+@bot.command()
+async def t(ctx):
+    print(ctx.message)
+    await ctx.send('t')
+    pass
+'''
 
 
 # TODO Define role relations
-# TODO Store role relations, per server in some info file somewhere, using pandas library
 
 def parserole(message, roleid):
     """Given specific message and id number of a role, find the role on the server with the same id then return it.
@@ -104,6 +127,12 @@ def parserole(message, roleid):
             return role
 
     return ""
+
+
+def writejson(gid, dict):
+    dir = './guilds/' + gid + '.json'
+    f = open(dir, 'r') if os.path.exists(dir) else open(dir, 'w+')
+    json.load(f)
 
 
 client.run(TOKEN)

@@ -1,91 +1,46 @@
 import os
 from dotenv import load_dotenv
-
+import json
 import disnake
 from disnake.ext import commands
 
-
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
-intents = disnake.Intents.default()
-intents.guilds = True
-intents.members = True
-intents.presences = True
-intents.message_content = True
-bot = commands.Bot(intents=intents, command_prefix='$', sync_commands_debug=True)
-
-# test_guilds=[996239355704258590]
+intents = disnake.Intents(message_content=True, members=True, guilds=True)
+# intents.
+bot = commands.Bot(intents=intents, command_prefix='$', sync_commands_debug=True, test_guilds=[996239355704258590])
 
 
-@bot.slash_command(description="Responds with 'World'")
-async def hello(inter):
-    await inter.response.send_message("World")
-'''
-Old logic ran every message
-@client.event
-async def on_message(message):
-    if message.author == client.user:
-        print(message.guild.id)
-        return
+# bot = commands.Bot(intents=intents, command_prefix='$', test_guilds=[996239355704258590])
 
-    msg = message.content
-    if msg.startswith('!'):
-        chunks = msg.split(' ')
-        match chunks[0].lower():
-            case "!help":
-                # TODO write actual help
-                await message.channel.send('''Teststring''')
-            case "!relate":
-                if len(chunks) == 4:
-                    server = str(message.channel.guild)
-                    role1 = parserole(message, chunks[1])
-                    role2 = parserole(message, chunks[2])
-                    relation = chunks[3]
 
-                    await message.channel.send('Processing...')
+@bot.slash_command(description="A user will be given role1 if they ever get role2.")
+async def hierarchize(inter, role1: str, role2: str):
+    role1, role2, invalidrolebool = variableCheck(inter, role1, role2)
+    if invalidrolebool:
+        await inter.response.send_message('no')
+    else:
+        tstring = '{} {}'.format(role1.id, role2.id)
+        await inter.response.send_message(tstring)
+        relationDefine(inter.channel.guild.id, role1, role2, 1)
 
-                    # TODO save this information in a json
-                    dict = {role1.id: {role2.id: relation}}
-                    writejson(server, dict)
-                    # go to key with role1
-                    # go to nested key with role2
-                    # store role2
 
-                    await message.channel.send('Saved!')
+@bot.slash_command(description="A user will be given role1 if they get role2, or vice-versa.")
+async def match(inter, role1: str, role2: str):
+    role1, role2, invalidrolebool = variableCheck(inter, role1, role2)
+    if invalidrolebool:
+        await inter.response.send_message('no')
+    else:
+        await inter.response.send_message('k')
 
-                    # TODO brainstorm role exceptions to consider
-                    # if role1, give role2
-                    # if role1, remove role2
-                    # role2 = role1
 
-                    return
-                else:
-                    await message.channel.send('Incorrect number of arguments')
-
-            case "!giveme":
-                msgchan = message.channel
-                words = message.content.split(" ")
-
-                if (type(msgchan) == discord.channel.DMChannel):
-                    await msgchan.send('Error: Can\'t assign roles in direct messages')
-                    return
-                if len(words) < 2:
-                    await msgchan.send('Error: More arguments required for !giveme command')
-                    return
-                await msgchan.send('Input recieved, printing results in console')
-
-                id = words[1]
-                targetrole = parserole(message, id)
-
-                if targetrole == "":
-                    await message.channel.send('Error: No such role found.')
-                    return
-                else:
-                    await message.author.add_roles(targetrole, reason="hierarchy helper giveme command")
-
-            case _:
-                await message.channel.send('Invalid command, please use \"!Help\" for a list of commands.')
-'''
+@bot.slash_command(description="Someone can ONLY have role1 or role2.")
+async def noncompatible(inter, role1: str, role2: str):
+    role1, role2, invalidrolebool = variableCheck(inter, role1, role2)
+    if invalidrolebool:
+        await inter.response.send_message('no')
+    else:
+        await inter.response.send_message('k')
 
 
 @bot.event
@@ -96,25 +51,53 @@ async def on_member_update(before, after):
             print('ping')
 
 
-# TODO Define role relations
+def variableCheck(inter, r1, r2):
+    """Given the context of a command, and the raw string of two roles':
+    """
+    r1 = roleCheck(inter, r1)
+    r2 = roleCheck(inter, r2)
+    invalidrolebool = r1 == '' and r2 == ''
+    return r1, r2, invalidrolebool
 
-def parserole(message, roleid):
-    """Given specific message and id number of a role, find the role on the server with the same id then return it.
+
+def roleCheck(inter, roleid):
+    """Given command context and the raw value of a role, return the value given if it matches a role on the server.
     Else, return an empty string."""
-    # TODO send a message if roleid isnt an integer
     roleid = roleid[3:-1]
     roleid = int(roleid)
-    for role in message.channel.guild.roles:
+    for role in inter.guild.roles:
         if role.id == roleid:
             return role
-
     return ""
 
 
-def writejson(gid, dict):
-    dir = './guilds/' + gid + '.json'
-    f = open(dir, 'r') if os.path.exists(dir) else open(dir, 'w+')
-    json.load(f)
+def checkRelationParadox(inter):
+    """
+    Return true if a paradox is detected.
+    Else, return false.
+    """
+    print(inter)
+
+
+def relationDefine(guildid, role1, role2, relationid):
+    relation = {role1.id: {role2.id: relationid}}
+    print(relation)
+    writeJson(guildid, relation)
+
+
+def writeJson(gid, newrelation):
+    """Given the id of a guild and a dictionary object that represents a new relation between two roles:
+    Ensure no paradox is created, with checkRelationParadox(),
+    then update the json file with the dictionary object."""
+    jsonDir = './guilds/{}.json'.format(gid)
+    if not os.path.exists(jsonDir):
+        os.makedirs('./guilds')
+        f = open(jsonDir, 'w+')
+        f.write('{\n}')
+        f.close()
+    f = open(jsonDir, 'r+')
+    thing = json.load(f)
+    # TODO finish writeJson
+
 
 bot.run(TOKEN)
-

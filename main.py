@@ -22,7 +22,7 @@ async def hierarchize(inter, role1: str, role2: str):
     if invalidrolebool:
         await inter.response.send_message('no')
     else:
-        status = 'Saved! Now people will be given {} if they get {}'.format(role1, role2)
+        status = 'Saved! Now people will be given {} if they get {}'.format(role1.mention, role2.mention)
         await inter.response.send_message(status)
         relationDefine(inter.channel.guild.id, role1, role2, 1)
 
@@ -68,33 +68,35 @@ def findRole(inter, roleid):
     Else, return an empty string."""
     roleid = roleid[3:-1]
     roleid = int(roleid)
-    for role in inter.guild.roles:
-        if role.id == roleid:
-            return role
-    return ""
+    return inter.guild.get_role(roleid)
 
 
-def checkRelationParadox(inter):
+def checkRelationParadox(relation):
     """
     Return true if a paradox is detected.
     Else, return false.
     """
-    print(inter)
+    print(relation)
 
 
 def relationDefine(guildid, role1, role2, relationid):
     relation = {str(role1.id): {str(role2.id): relationid}}
-    updateJson(guildid, relation)
+    if not checkRelationParadox(relation):
+        jsoncontents = updateJson(guildid, relation)
+    else:
+        return True
 
 
 def updateJson(gid, newrelation):
     """Given the id of a guild and a dictionary object that represents a new relation between two roles:
     Ensure no paradox is created, with checkRelationParadox(),
-    then update the json file with the dictionary object."""
+    then update the json file with the dictionary object.
+
+    Return the updated contents of the json file"""
 
     # Use readJson variables later to write to Json
 
-    jsondir, jsoncontents = readJson(gid)
+    jsoncontents, jsondir = readJson(gid)
 
     # Get the key from the new relation and the stored relations
     key = list(newrelation.keys())[0]
@@ -110,8 +112,16 @@ def updateJson(gid, newrelation):
     f.write(json.dumps(jsoncontents, indent=4))
     f.close()
 
+    return jsoncontents
+
 
 def readJson(gid):
+    """Given the id of a guild, read the contents of the server-specific json.
+    Create an empty json, if it doesn't already exist so the contents are {}.
+
+    Return the directory of the json file,
+    and return the contents of the json as a dict object.
+    """
     jsondir = './guilds/{}.json'.format(gid)
     if not os.path.exists(jsondir):
         os.makedirs('./guilds')
@@ -122,7 +132,12 @@ def readJson(gid):
     jsoncontents = json.load(f)
     f.close()
 
-    return jsondir, jsoncontents
+    return jsoncontents, jsondir
+
+
+def updateRoles(role, jsoncontents=None):
+    if jsoncontents == None:
+        jsoncontents = readJson(role.guild)
 
 
 bot.run(TOKEN)

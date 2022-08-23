@@ -37,7 +37,7 @@ async def on_member_update(before, after):
     elif len(before.roles) > len(after.roles):
         newRole = next(role for role in before.roles if role not in after.roles)
     if newRole is not None:
-        updateRoles(newRole, members=after)
+        updateRoles(newRole, after)
 
 
 async def relationLogic(inter, role1: str, role2: str, relationclass: int):
@@ -49,9 +49,21 @@ async def relationLogic(inter, role1: str, role2: str, relationclass: int):
     role1, role2, invalidrolebool = variableCheck(inter, role1, role2)
     if invalidrolebool:
         await inter.response.send_message('no')
-    if relationDefine(inter.channel.guild.id, role1, role2, relationclass):
+    j = relationDefine(inter.channel.guild.id, role1, role2, relationclass)
+    if not j:
         await inter.response.send_message('nah')
+
     status = 'Saved! Now people will be given {} if they get {}'.format(role1.mention, role2.mention)
+    match relationclass:
+        case 1:
+            await updateRoles(role2, jsoncontents=j)
+        case 2:
+            await updateRoles(role1, jsoncontents=j)
+            await updateRoles(role2, jsoncontents=j)
+        case 3:
+            await updateRoles(role1, jsoncontents=j)
+            await updateRoles(role2, jsoncontents=j)
+
     await inter.response.send_message(status)
 
 
@@ -93,10 +105,9 @@ def relationDefine(guildid, role1, role2, relationid):
     """
     relation = {str(role1.id): {str(role2.id): relationid}}
     if checkRelationParadox(relation):
-        return True
+        return False
     jsoncontents = updateJson(guildid, relation)
-    updateRoles(role1, jsoncontents=jsoncontents)
-    return False
+    return jsoncontents
 
 
 def updateJson(gid, newrelation):
@@ -149,7 +160,7 @@ def readJson(gid):
     return jsoncontents, jsondir
 
 
-def updateRoles(role, member=None, jsoncontents=None):
+async def updateRoles(role, member=None, jsoncontents=None):
     """Given a role, update it to follow all relations stored in the guild specific JSON
     member, is member object to update.
     If not provided, then this function will update the role for all users on the server.
@@ -175,22 +186,29 @@ def updateRoles(role, member=None, jsoncontents=None):
         return
 
     for targetmember in member:
-        memval = 0
-        if role not in targetmember.roles:
-            memval = 8
+        rolepresent = True if role in targetmember.roles else False
         for roleid in jsoncontents[key]:
             targetrole = guild.get_role(int(roleid))
-            match jsoncontents[key][roleid] + memval:
-                case 1:
-                    print('hierierarchize')
-                case 9:
-                    print('removehierarchizechild')
+            print(targetrole)
+            match jsoncontents[key][roleid], rolepresent:
+                case 1, True:
+                    print('add hierarchized child')
+                case 2, True:
+                    print('add match')
+                case 3, True:
+                    print('remove other highlander')
+                case 9, False:
+                    print('remove hierarchized child')
+                case 10, False:
+                    print('remove match')
+                case 11, False:
+                    print('add other highlander')
 
+        if addroles:
+            await targetmember.add_roles(addroles)
+        if removeroles:
+            await targetmember.remove_roles(removeroles)
 
-        targetmember.add_roles(addroles)
-        targetmember.remove_roles(removeroles)
-
-    # TODO make this update all roles according to the relations in the json
     # TODO make all roles get added/removed at once
     # Get array of all members with role
 

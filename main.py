@@ -4,29 +4,29 @@ import json
 import disnake
 from disnake.ext import commands
 
+# TODO operate under assumption only one relation exists (heirarchy) ignore others
+# TODO refactor code so this is consistent (below can be reversed, just should be consistent)
+# In general, r1 {r2:1} means r1 is the child of r2
+#          ...r1 {r2:2} means r1 is the parent of r2
+
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 intents = disnake.Intents(message_content=True, members=True, guilds=True)
-# intents.
 bot = commands.Bot(intents=intents, command_prefix='$', sync_commands_debug=True, test_guilds=[996239355704258590])
 
 
 # bot = commands.Bot(intents=intents, command_prefix='$', test_guilds=[996239355704258590])
 
 
-@bot.slash_command(description="A user will be given parent if they ever get child.")
-async def hierarchize(inter, child: str, parent: str):
+@bot.slash_command(description="This will define the relation for the server, and immediately enforce it.")
+async def makerelation(inter, parent: str, child: str,
+                       relationtype: str = commands.Param(choices=["Heirarchy", "Matching", "Highlander"])):
+    print(relationtype)
+
+
+@bot.slash_command(description="A user will be given parent if they ever get child. Also, ")
+async def test(inter, parent: str, child: str):
     await relationLogic(inter, child, parent, 1)
-
-
-@bot.slash_command(description="A user will be given role1 if they get role2, or vice-versa.")
-async def match(inter, role1: str, role2: str):
-    await relationLogic(inter, role1, role2, 2)
-
-
-@bot.slash_command(description="Someone can ONLY have role1 or role2.")
-async def noncompatible(inter, role1: str, role2: str):
-    await relationLogic(inter, role1, role2, 3)
 
 
 @bot.event
@@ -37,31 +37,31 @@ async def on_member_update(before, after):
     elif len(before.roles) > len(after.roles):
         newRole = next(role for role in before.roles if role not in after.roles)
     if newRole is not None:
-        updateRoles(newRole, after)
+        await updateRoles(newRole, after)
 
 
-async def relationLogic(inter, role1: str, role2: str, relationclass: int):
+async def relationLogic(inter, role1: disnake.Role, role2: disnake.Role, relationclass: int):
     """Whenever one of the slash commands for defining roles is called, this function processes the actual logic
     of storing all the information, since each one is essentially the same process.
     """
+    print(inter)
     # TODO Check if user has correct permissions to do this
     # Probably looking for admin perms + ability to assign/remove roles
+    # TODO refactor relationLogic to deal with relations being two way
+    # TODO refactor variableCheck...
+    # TODO refactor relationDefine...
     role1, role2, invalidrolebool = variableCheck(inter, role1, role2)
     if invalidrolebool:
-        await inter.response.send_message('no')
+        await inter.response.send_message('Sorry! One of the roles input was invalid.')
+        return
     j = relationDefine(inter.channel.guild.id, role1, role2, relationclass)
     if not j:
-        await inter.response.send_message('nah')
+        await inter.response.send_message('Sorry! The relation was not able to be saved.')
 
-    status = 'Saved! Now people will be given {} if they get {}'.format(role1.mention, role2.mention)
+    status = 'Saved! Now when people get the {} role, they will automatically get the {} role.'.format(role1.mention,
+                                                                                                       role2.mention)
     match relationclass:
         case 1:
-            await updateRoles(role2, jsoncontents=j)
-        case 2:
-            await updateRoles(role1, jsoncontents=j)
-            await updateRoles(role2, jsoncontents=j)
-        case 3:
-            await updateRoles(role1, jsoncontents=j)
             await updateRoles(role2, jsoncontents=j)
 
     await inter.response.send_message(status)
@@ -74,7 +74,7 @@ def variableCheck(inter, r1, r2):
     """
     r1 = findRole(inter, r1)
     r2 = findRole(inter, r2)
-    invalidrolebool = r1 is None or r2 is None
+    invalidrolebool = (r1 is None or r2 is None)
     return r1, r2, invalidrolebool
 
 
@@ -179,35 +179,30 @@ async def updateRoles(role, member=None, jsoncontents=None):
     if jsoncontents is None:
         jsoncontents = readJson(guild.id)[0]
 
-    print('\nupdateRoles\n{}'.format(jsoncontents))
-
     if key not in list(jsoncontents.keys()):
-        print('no')
         return
 
     for targetmember in member:
         rolepresent = True if role in targetmember.roles else False
         for roleid in jsoncontents[key]:
             targetrole = guild.get_role(int(roleid))
-            print(targetrole)
             match jsoncontents[key][roleid], rolepresent:
+                # Child of heirarchy
                 case 1, True:
-                    print('add hierarchized child')
-                case 2, True:
-                    print('add match')
-                case 3, True:
-                    print('remove other highlander')
-                case 9, False:
-                    print('remove hierarchized child')
-                case 10, False:
-                    print('remove match')
-                case 11, False:
-                    print('add other highlander')
+                    addroles.append(targetrole)
+                # Parent of Heirarchy
+                case 2, False:
+                    removeroles.append(targetrole)
 
+        print('\n\nChanging roles')
         if addroles:
-            await targetmember.add_roles(addroles)
+            print(addroles)
+            for role in addroles:
+                await targetmember.add_roles(role)
         if removeroles:
-            await targetmember.remove_roles(removeroles)
+            print(removeroles)
+            for role in removeroles:
+                await targetmember.remove_roles(role)
 
     # TODO make all roles get added/removed at once
     # Get array of all members with role

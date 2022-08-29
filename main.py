@@ -29,6 +29,9 @@ async def test(inter, parent: str, child: str):
     await relationLogic(inter, child, parent, 1)
 
 
+# TODO make a slash command to inform the user of all relations on the server
+
+
 @bot.event
 async def on_member_update(before, after):
     newRole = None
@@ -37,7 +40,7 @@ async def on_member_update(before, after):
     elif len(before.roles) > len(after.roles):
         newRole = next(role for role in before.roles if role not in after.roles)
     if newRole is not None:
-        await updateRoles(newRole, after)
+        await updateRole(newRole, after)
 
 
 async def relationLogic(inter, role1: disnake.Role, role2: disnake.Role, relationclass: int):
@@ -62,13 +65,14 @@ async def relationLogic(inter, role1: disnake.Role, role2: disnake.Role, relatio
                                                                                                        role2.mention)
     match relationclass:
         case 1:
-            await updateRoles(role2, jsoncontents=j)
+            await updateRole(role2, jsoncontents=j)
 
     await inter.response.send_message(status)
 
 
 def variableCheck(inter, r1, r2):
     """Given the context of a command, and the raw string of two roles':
+
     Return the role objects in the server the command was sent from, using guild.get_role() from Disnake
     And return true if either is None
     """
@@ -81,45 +85,46 @@ def variableCheck(inter, r1, r2):
 def findRole(inter, roleid):
     """Given command context and the raw value of a role, return the value given if it matches a role on the server.
     Else, return an empty string."""
-    roleid = roleid[3:-1]
-    roleid = int(roleid)
-    return inter.guild.get_role(roleid)
+    try:
+        roleid = roleid[3:-1]
+        roleid = int(roleid)
+        return inter.guild.get_role(roleid)
+    except ValueError:
+        return None
+
 
 
 def checkRelationParadox(relation):
-    """
-    Return true if a paradox is detected.
+    """Return true if a paradox is detected.
     Else, return false.
     """
     # TODO implement checking for paradoxes
     print(relation)
 
 
-def relationDefine(guildid, role1, role2, relationid):
-    """
-    Given two roles, the ID of the relation to be established and the guild they're in:
+def relationDefine(guildid, role1, role2, relationid: int):
+    """Given two roles, the ID of the relation to be established and the guild they're in:
     Define a dict object describing the relation, run it through checkRelationParadox()
 
     If checkRelationParadox() returns true, immediately return True
-    Else, updateJson() with the new relation, then updateRoles() on the server, then return False.
+    Else, updateJson() with the new relation, then updateRole() on the server, then return False.
     """
     relation = {str(role1.id): {str(role2.id): relationid}}
-    if checkRelationParadox(relation):
+    converse = {str(role2.id): {str(role1.id): relationid + 1}}
+    if checkRelationParadox(relation) or checkRelationParadox(converse):
         return False
-    jsoncontents = updateJson(guildid, relation)
-    return jsoncontents
+    # Call readjson to get information about server relations
+    jsoncontents, jsondir = readJson(guildid)
+    # Update with the relation, then use that result to update the converse, then return the results
+    return updateJson(converse, updateJson(relation, jsoncontents, jsondir), jsondir)
 
 
-def updateJson(gid, newrelation):
+def updateJson(newrelation, jsoncontents, jsondir):
     """Given the id of a guild and a dictionary object that represents a new relation between two roles:
     Ensure no paradox is created, with checkRelationParadox(),
     then update the json file with the dictionary object.
 
     Return the updated contents of the json file"""
-
-    # Use readJson variables later to write to Json
-
-    jsoncontents, jsondir = readJson(gid)
 
     # Get the key from the new relation and the stored relations
     key = list(newrelation.keys())[0]
@@ -143,16 +148,22 @@ def readJson(gid):
     """Given the id of a guild, read the contents of the server-specific json.
     Create an empty json, if it doesn't already exist so the contents are {}.
 
-    Return the directory of the json file,
-    and return the contents of the json as a dict object.
+    Return the contents of the json as a dict object,
+    and return the directory of the json file.
     """
+    # Find json location, it's all in one folder, with the name of the json based on the guild's id
     jsondir = './guilds/{}.json'.format(gid)
+
+    # Write file for guilds if it doesn't already exist
     if not os.path.exists(jsondir):
+        # Write directory for guilds if it doesn't already exist
         if not os.path.exists('./guilds'):
             os.makedirs('./guilds')
         f = open(jsondir, 'w+')
         f.write('{\n}')
         f.close()
+
+    # Open and read the json file
     f = open(jsondir, 'r')
     jsoncontents = json.load(f)
     f.close()
@@ -160,9 +171,10 @@ def readJson(gid):
     return jsoncontents, jsondir
 
 
-async def updateRoles(role, member=None, jsoncontents=None):
+async def updateRole(role, member=None, jsoncontents=None):
     """Given a role, update it to follow all relations stored in the guild specific JSON
     member, is member object to update.
+
     If not provided, then this function will update the role for all users on the server.
     jsoncontents, must be a dict of the guild-specific json. If not provided, then readJson() is called.
     """
@@ -204,19 +216,7 @@ async def updateRoles(role, member=None, jsoncontents=None):
             for role in removeroles:
                 await targetmember.remove_roles(role)
 
-    # TODO make all roles get added/removed at once
-    # Get array of all members with role
 
-    # get role1 = get role2 //hierarchize
-    # rm role1 = dont care
-
-    # get role1 = rm role2 // same either direction
-    # rm role1 = get role2
-
-    # Paired
-    # rm role1 = rm role2 // Similar to hierarchize ?
-    # get role1 = get role2
-    # also, paired/symmetrical versions of above
 
     # TODO make a two part function that removes a specific role-to-role function
     # put considerations for symmetrical relations

@@ -4,37 +4,32 @@ import json
 import disnake
 from disnake.ext import commands
 
-# TODO operate under assumption only one relation exists (heirarchy) ignore others
-# TODO refactor code so this is consistent (below can be reversed, just should be consistent)
-# In general, r1 {r2:1} means r1 is the child of r2
-#          ...r1 {r2:2} means r1 is the parent of r2
-
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 intents = disnake.Intents(message_content=True, members=True, guilds=True)
 bot = commands.Bot(intents=intents, command_prefix='$', sync_commands_debug=True, test_guilds=[996239355704258590])
 
 
-# bot = commands.Bot(intents=intents, command_prefix='$', test_guilds=[996239355704258590])
-
-
-@bot.slash_command(description="This will define the relation for the server, and immediately enforce it.")
-async def makerelation(inter, parent: str, child: str,
-                       relationtype: str = commands.Param(choices=["Heirarchy", "Matching", "Highlander"])):
-    print(relationtype)
-
-
-@bot.slash_command(description="A user will be given parent if they ever get child. Also, ")
-async def test(inter, parent: str, child: str):
+@bot.slash_command(description="Makes a relation between the parent and child role.")
+async def makerelation(inter, parent: str, child: str):
     await relationLogic(inter, child, parent, 1)
+
+
+@bot.slash_command(description="Confused? Use this command if you're not sure how this works.", dm_permission=True)
+async def help(inter):
+    directmessage = inter.user.dm_channel
+    if not directmessage:
+        directmessage = await inter.user.create_dm()
+    helpstr = '''blehelhe'''
+    await inter.response
+    await directmessage.send(helpstr)
 
 
 # TODO make a slash command to inform the user of all relations on the server
 
 
 @bot.event
-async def on_member_update(before, after):
-    newRole = None
+async def on_member_update(before, after, newRole: None):
     if len(before.roles) < len(after.roles):
         newRole = next(role for role in after.roles if role not in before.roles)
     elif len(before.roles) > len(after.roles):
@@ -50,9 +45,8 @@ async def relationLogic(inter, role1: disnake.Role, role2: disnake.Role, relatio
     print(inter)
     # TODO Check if user has correct permissions to do this
     # Probably looking for admin perms + ability to assign/remove roles
-    # TODO refactor relationLogic to deal with relations being two way
-    # TODO refactor variableCheck...
-    # TODO refactor relationDefine...
+    # TODO refactor variableCheck to deal with relations being two way
+    # TODO refactor relationDefine to deal with relations being two way
     role1, role2, invalidrolebool = variableCheck(inter, role1, role2)
     if invalidrolebool:
         await inter.response.send_message('Sorry! One of the roles input was invalid.')
@@ -93,7 +87,6 @@ def findRole(inter, roleid):
         return None
 
 
-
 def checkRelationParadox(relation):
     """Return true if a paradox is detected.
     Else, return false.
@@ -106,8 +99,8 @@ def relationDefine(guildid, role1, role2, relationid: int):
     """Given two roles, the ID of the relation to be established and the guild they're in:
     Define a dict object describing the relation, run it through checkRelationParadox()
 
-    If checkRelationParadox() returns true, immediately return True
-    Else, updateJson() with the new relation, then updateRole() on the server, then return False.
+    If either relation would cause a paradox
+    Otherwise,
     """
     relation = {str(role1.id): {str(role2.id): relationid}}
     converse = {str(role2.id): {str(role1.id): relationid + 1}}
@@ -216,12 +209,8 @@ async def updateRole(role, member=None, jsoncontents=None):
             for role in removeroles:
                 await targetmember.remove_roles(role)
 
-
-
     # TODO make a two part function that removes a specific role-to-role function
     # put considerations for symmetrical relations
-
-    # TODO make a function that reports all relations, a simple list is fine
 
 
 bot.run(TOKEN)

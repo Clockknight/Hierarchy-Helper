@@ -12,8 +12,10 @@ bot = commands.Bot(intents=intents, command_prefix='$', sync_commands_debug=True
 
 @bot.slash_command(description="Makes a hierarchy between the parent and child role.")
 async def hierarchycreate(inter, parent: str, child: str):
-
-    await relationLogic(inter, child, parent, 1)
+    if inter.user.guild_permissions.administrator:
+        await relationLogic(inter, child, parent, 1)
+    else:
+        await inter.respond.send_message("Sorry! You're not an admin, and therefore cannot create that hierarchy!")
 
 
 @bot.slash_command(description="Confused? Use this command if you're not sure how this works.", dm_permission=True)
@@ -21,7 +23,7 @@ async def hierarchyhelp(inter):
     helpstr = '''blehelhe'''
     await directmessageuser(inter, helpstr)
 
-# TODO make a slash command to inform the user of all relations on the server
+
 @bot.slash_command(description="Show all of the hierarchies between roles on the server")
 async def hierarchydisplay(inter):
     result = '***Printing all the hierarchies on {}:***\n\n'.format(inter.guild)
@@ -70,11 +72,7 @@ async def relationLogic(inter, role1: disnake.Role, role2: disnake.Role, relatio
     """Whenever one of the slash commands for defining roles is called, this function processes the actual logic
     of storing all the information, since each one is essentially the same process.
     """
-    print(inter)
-    # TODO Check if user has correct permissions to do this
     # Probably looking for admin perms + ability to assign/remove roles
-    # TODO refactor variableCheck to deal with relations being two way
-    # TODO refactor relationDefine to deal with relations being two way
     role1, role2, invalidrolebool = variableCheck(inter, role1, role2)
     if invalidrolebool:
         await inter.response.send_message('Sorry! One of the roles input was invalid.')

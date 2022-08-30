@@ -10,22 +10,50 @@ intents = disnake.Intents(message_content=True, members=True, guilds=True)
 bot = commands.Bot(intents=intents, command_prefix='$', sync_commands_debug=True, test_guilds=[996239355704258590])
 
 
-@bot.slash_command(description="Makes a relation between the parent and child role.")
-async def makerelation(inter, parent: str, child: str):
+@bot.slash_command(description="Makes a hierarchy between the parent and child role.")
+async def hierarchycreate(inter, parent: str, child: str):
+
     await relationLogic(inter, child, parent, 1)
 
 
 @bot.slash_command(description="Confused? Use this command if you're not sure how this works.", dm_permission=True)
-async def help(inter):
+async def hierarchyhelp(inter):
+    helpstr = '''blehelhe'''
+    await directmessageuser(inter, helpstr)
+
+# TODO make a slash command to inform the user of all relations on the server
+@bot.slash_command(description="Show all of the hierarchies between roles on the server")
+async def hierarchydisplay(inter):
+    result = '***Printing all the hierarchies on {}:***\n\n'.format(inter.guild)
+    jsoncontents = readJson(inter.guild.id)[0]
+    keys = jsoncontents.keys()
+    for key in keys:
+        keyHierarchies = ''
+        children = ''
+        parents = ''
+        keyHierarchies += '*{}* ---\n'.format(findRole(inter, key).name)
+        for subkey in jsoncontents[key].keys():
+            match jsoncontents[key][subkey]:
+                case 1:
+                    parents += '*{}*\n'.format(findRole(inter, subkey).name)
+                case 2:
+                    children += '*{}*\n'.format(findRole(inter, subkey).name)
+        if children:
+            keyHierarchies += '**Children roles**:\n' + children
+        if parents:
+            keyHierarchies += '**Parent roles**:\n' + parents
+        result += '{}**===============**\n'.format(keyHierarchies)
+
+    await directmessageuser(inter, result[:-21])
+
+
+async def directmessageuser(inter, message):
     directmessage = inter.user.dm_channel
     if not directmessage:
         directmessage = await inter.user.create_dm()
-    helpstr = '''blehelhe'''
-    await inter.response
-    await directmessage.send(helpstr)
-
-
-# TODO make a slash command to inform the user of all relations on the server
+    await inter.response.defer()
+    await inter.delete_original_message()
+    await directmessage.send(message)
 
 
 @bot.event
@@ -56,6 +84,7 @@ async def relationLogic(inter, role1: disnake.Role, role2: disnake.Role, relatio
         await inter.response.send_message('Sorry! The relation was not able to be saved.')
 
     status = 'Saved! Now when people get the {} role, they will automatically get the {} role.'.format(role1.mention,
+
                                                                                                        role2.mention)
     match relationclass:
         case 1:
@@ -76,11 +105,12 @@ def variableCheck(inter, r1, r2):
     return r1, r2, invalidrolebool
 
 
-def findRole(inter, roleid):
-    """Given command context and the raw value of a role, return the value given if it matches a role on the server.
+def findRole(inter, roleid: str):
+    """Given command context and the string of a role, return the value given if it matches a role on the server.
     Else, return an empty string."""
     try:
-        roleid = roleid[3:-1]
+        if roleid[0] == '<':
+            roleid = roleid[3:-1]
         roleid = int(roleid)
         return inter.guild.get_role(roleid)
     except ValueError:
@@ -192,10 +222,10 @@ async def updateRole(role, member=None, jsoncontents=None):
         for roleid in jsoncontents[key]:
             targetrole = guild.get_role(int(roleid))
             match jsoncontents[key][roleid], rolepresent:
-                # Child of heirarchy
+                # Child of hierarchy
                 case 1, True:
                     addroles.append(targetrole)
-                # Parent of Heirarchy
+                # Parent of hierarchy
                 case 2, False:
                     removeroles.append(targetrole)
 

@@ -20,3 +20,11 @@ There are currently 3 commands.
 /hierarchydisplay --- DM a message that describes all hierarchies on the server you sent this command on.
 
 /hierarchycreate --- This command takes two roles, and then will create and store a hierarchy about them.
+
+
+***The bot doesn't respond when I input a command!***
+Could be from a number of reasons, but try the following fixes:
+ - Make sure that the hierarchy helper role is above all roles that you want it to manage.
+
+If none of the fixes work, please DM me:
+Clockknight#3561

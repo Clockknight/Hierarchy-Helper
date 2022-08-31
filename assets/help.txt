@@ -1,0 +1,22 @@
+***What is this?***
+This bot creates "hierarchies" between rules.
+These hierarchies define what
+
+***What kind of hierarchies exist?***
+Currently, only one kind of hierarchy exists: **Parent-child hierarchies.**
+In these, a parent role and a child role are defined.
+Whenever a child role is given, all of its parent roles are also given.
+Whenever a parent role is removed, all of its child roles are also given.
+
+***What can this bot actually do?***
+This bot can store all the hierarchies you instruct it to.
+It will also automatically enforce those hierarchies, when you add those hierarchies, and also when you remove or add roles in hierarchies.
+
+***What commands can I give to the bot?***
+There are currently 3 commands.
+
+/hierarchyhelp --- DM this message.
+
+/hierarchydisplay --- DM a message that describes all hierarchies on the server you sent this command on.
+
+/hierarchycreate --- This command takes two roles, and then will create and store a hierarchy about them.

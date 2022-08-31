@@ -7,24 +7,28 @@ from disnake.ext import commands
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 intents = disnake.Intents(message_content=True, members=True, guilds=True)
-bot = commands.Bot(intents=intents, command_prefix='$', sync_commands_debug=True, test_guilds=[996239355704258590])
+bot = commands.Bot(intents=intents, command_prefix='$', sync_commands_debug=True)
+
+helpstr = open('.\\assets\\help.txt', 'r').read()
 
 
-@bot.slash_command(description="Makes a hierarchy between the parent and child role.")
-async def hierarchycreate(inter, parent: str, child: str):
+# TODO option to add list of roles in either argument
+# TODO bot should igve itself a role if it doesnt already have one when this is called
+@bot.slash_command(description="Makes a hierarchy between the parent and child role.", dm_permission=False)
+# TODO parentrole and childrole should be dropdown menus of roles on the server
+async def hierarchycreate(inter, parentrole: disnake.Role, childrole: disnake.Role):
     if inter.user.guild_permissions.administrator:
-        await relationLogic(inter, child, parent, 1)
+        await relationLogic(inter, childrole, parentrole, 1)
     else:
-        await inter.respond.send_message("Sorry! You're not an admin, and therefore cannot create that hierarchy!")
+        await inter.response.send_message("Sorry! You're not an admin, and therefore cannot create that hierarchy!")
 
 
 @bot.slash_command(description="Confused? Use this command if you're not sure how this works.", dm_permission=True)
 async def hierarchyhelp(inter):
-    helpstr = '''blehelhe'''
     await directmessageuser(inter, helpstr)
 
 
-@bot.slash_command(description="Show all of the hierarchies between roles on the server")
+@bot.slash_command(description="Show all of the hierarchies between roles on the server", dm_permission=False)
 async def hierarchydisplay(inter):
     result = '***Printing all the hierarchies on {}:***\n\n'.format(inter.guild)
     jsoncontents = readJson(inter.guild.id)[0]
@@ -33,7 +37,7 @@ async def hierarchydisplay(inter):
         keyHierarchies = ''
         children = ''
         parents = ''
-        keyHierarchies += '*{}* ---\n'.format(findRole(inter, key).name)
+        keyHierarchies += '*{} Hierarchies* ---\n'.format(findRole(inter, key).name)
         for subkey in jsoncontents[key].keys():
             match jsoncontents[key][subkey]:
                 case 1:
@@ -73,10 +77,6 @@ async def relationLogic(inter, role1: disnake.Role, role2: disnake.Role, relatio
     of storing all the information, since each one is essentially the same process.
     """
     # Probably looking for admin perms + ability to assign/remove roles
-    role1, role2, invalidrolebool = variableCheck(inter, role1, role2)
-    if invalidrolebool:
-        await inter.response.send_message('Sorry! One of the roles input was invalid.')
-        return
     j = relationDefine(inter.channel.guild.id, role1, role2, relationclass)
     if not j:
         await inter.response.send_message('Sorry! The relation was not able to be saved.')
@@ -89,18 +89,6 @@ async def relationLogic(inter, role1: disnake.Role, role2: disnake.Role, relatio
             await updateRole(role2, jsoncontents=j)
 
     await inter.response.send_message(status)
-
-
-def variableCheck(inter, r1, r2):
-    """Given the context of a command, and the raw string of two roles':
-
-    Return the role objects in the server the command was sent from, using guild.get_role() from Disnake
-    And return true if either is None
-    """
-    r1 = findRole(inter, r1)
-    r2 = findRole(inter, r2)
-    invalidrolebool = (r1 is None or r2 is None)
-    return r1, r2, invalidrolebool
 
 
 def findRole(inter, roleid: str):

@@ -38,6 +38,8 @@ async def hierarchydisplay(inter):
         children = ''
         parents = ''
         keyHierarchies += '*{} Hierarchies* ---\n'.format(findRole(inter, key).name)
+        if not jsoncontents[key].keys():
+            result = 'Sorry! No hierarchies are stored for this server yet!{}**===============**\n'.format(keyHierarchies)
         for subkey in jsoncontents[key].keys():
             match jsoncontents[key][subkey]:
                 case 1:
@@ -48,7 +50,7 @@ async def hierarchydisplay(inter):
             keyHierarchies += '**Children roles**:\n' + children
         if parents:
             keyHierarchies += '**Parent roles**:\n' + parents
-        result += '{}**===============**\n'.format(keyHierarchies)
+        result += '{}\n**===============**\n\n'.format(keyHierarchies)
 
     await directmessageuser(inter, result[:-21])
 
@@ -63,7 +65,7 @@ async def directmessageuser(inter, message):
 
 
 @bot.event
-async def on_member_update(before, after, newRole: None):
+async def on_member_update(before, after, newRole=None):
     if len(before.roles) < len(after.roles):
         newRole = next(role for role in after.roles if role not in before.roles)
     elif len(before.roles) > len(after.roles):
@@ -82,13 +84,14 @@ async def relationLogic(inter, role1: disnake.Role, role2: disnake.Role, relatio
         await inter.response.send_message('Sorry! The relation was not able to be saved.')
 
     status = 'Saved! Now when people get the {} role, they will automatically get the {} role.'.format(role1.mention,
-
                                                                                                        role2.mention)
+
+    await inter.response.send_message(status)
+
     match relationclass:
         case 1:
             await updateRole(role2, jsoncontents=j)
 
-    await inter.response.send_message(status)
 
 
 def findRole(inter, roleid: str):
@@ -190,8 +193,6 @@ async def updateRole(role, member=None, jsoncontents=None):
 
     key = str(role.id)
     guild = role.guild
-    addroles = []
-    removeroles = []
     if member is None:
         member = guild.members
     else:
@@ -204,6 +205,8 @@ async def updateRole(role, member=None, jsoncontents=None):
         return
 
     for targetmember in member:
+        addroles = []
+        removeroles = []
         rolepresent = True if role in targetmember.roles else False
         for roleid in jsoncontents[key]:
             targetrole = guild.get_role(int(roleid))
@@ -215,7 +218,7 @@ async def updateRole(role, member=None, jsoncontents=None):
                 case 2, False:
                     removeroles.append(targetrole)
 
-        print('\n\nChanging roles')
+        print('\n\nChanging roles\n{}'.format(guild))
         if addroles:
             print(addroles)
             for role in addroles:

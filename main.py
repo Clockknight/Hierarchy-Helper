@@ -20,13 +20,16 @@ async def hierarchyupdate(inter):
     jsoncontents = readJson(inter.guild.id)[0]
     rolecount = len(jsoncontents)
     if rolecount:
-        for index, role in enumerate(jsoncontents.keys()):
-            print(role)
-            print(index)
-            await inter.edit_original_message(content="Okay! Updating role #{} out of {} roles in hierarchies on the server!".format(index, rolecount))
+        for roleindex, role in enumerate(jsoncontents.keys()):
             role = findRole(inter, role)
-            await updateRole(role)
-        await inter.edit_original_message(content="Okay! Done updating all {} hierarchied roles on the server!".format(rolecount))
+            for userindex, user in enumerate(inter.guild.members):
+                await inter.edit_original_message(
+                    content="Okay! Updating {}, role #{} out of {} roles in hierarchies on the server."
+                            "\nCurrently processing user {}, #{} out of {}".format(role.mention, roleindex+1, rolecount,
+                            user.mention, userindex+1, len(inter.guild.members)))
+                await updateRole(role)
+        await inter.edit_original_message(content="Okay! Done updating all {} hierarchied roles on the server!"
+                                                  "".format(rolecount))
     else:
         await inter.edit_original_message(content="Sorry! No hierarchies to update on the server!")
 
@@ -227,12 +230,13 @@ async def updateRole(role, member=None, jsoncontents=None):
         rolepresent = True if role in targetmember.roles else False
         for roleid in jsoncontents[key]:
             targetrole = guild.get_role(int(roleid))
-            match jsoncontents[key][roleid], rolepresent:
-                # Child of hierarchy
-                case 1, True:
+            targetrolepresent = True if targetrole in targetmember.roles else False
+            match jsoncontents[key][roleid], rolepresent, targetrolepresent:
+                # Child of hierarchy, parent present, child missing
+                case 1, True, False:
                     addroles.append(targetrole)
-                # Parent of hierarchy
-                case 2, False:
+                # Parent of hierarchy, parent missing, child present
+                case 2, False, True:
                     removeroles.append(targetrole)
 
         print('\n\nChanging roles\n{}'.format(guild))

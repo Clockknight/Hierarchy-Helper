@@ -21,6 +21,7 @@ There are currently 3 commands.
 
 /hierarchycreate --- This command takes two roles, and then will create and store a hierarchy about them.
 
+/hierarchyupdate --- This command is used to manually check and apply all hierarchies, since this isn't running reliably at the moment.
 
 ***The bot doesn't respond when I input a command!***
 Could be from a number of reasons, but try the following fixes:

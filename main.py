@@ -12,13 +12,30 @@ bot = commands.Bot(intents=intents, command_prefix='$', sync_commands_debug=True
 helpstr = open('.\\assets\\help.txt', 'r').read()
 
 
+# TODO update message as it iterates through users when initially creating hierarchy
+@bot.slash_command(description="Apply any existing hierarchies! They may not get applied when first described.",
+                   dm_permission=False)
+async def hierarchyupdate(inter):
+    await inter.response.send_message("Okay! Updating roles...")
+    jsoncontents = readJson(inter.guild.id)[0]
+    rolecount = len(jsoncontents)
+    if rolecount:
+        for index, role in enumerate(jsoncontents.keys()):
+            print(role)
+            print(index)
+            await inter.edit_original_message(content="Okay! Updating role #{} out of {} roles in hierarchies on the server!".format(index, rolecount))
+            role = findRole(inter, role)
+            await updateRole(role)
+        await inter.edit_original_message(content="Okay! Done updating all {} hierarchied roles on the server!".format(rolecount))
+    else:
+        await inter.edit_original_message(content="Sorry! No hierarchies to update on the server!")
+
+
 # TODO option to add list of roles in either argument
-# TODO bot should igve itself a role if it doesnt already have one when this is called
 @bot.slash_command(description="Makes a hierarchy between the parent and child role.", dm_permission=False)
-# TODO parentrole and childrole should be dropdown menus of roles on the server
-async def hierarchycreate(inter, parentrole: disnake.Role, childrole: disnake.Role):
+async def hierarchycreate(inter, parent_role: disnake.Role, child_role: disnake.Role):
     if inter.user.guild_permissions.administrator:
-        await relationLogic(inter, childrole, parentrole, 1)
+        await relationLogic(inter, child_role, parent_role, 1)
     else:
         await inter.response.send_message("Sorry! You're not an admin, and therefore cannot create that hierarchy!")
 
@@ -39,7 +56,8 @@ async def hierarchydisplay(inter):
         parents = ''
         keyHierarchies += '*{} Hierarchies* ---\n'.format(findRole(inter, key).name)
         if not jsoncontents[key].keys():
-            result = 'Sorry! No hierarchies are stored for this server yet!{}**===============**\n'.format(keyHierarchies)
+            result = 'Sorry! No hierarchies are stored for this server yet!{}**===============**\n'.format(
+                keyHierarchies)
         for subkey in jsoncontents[key].keys():
             match jsoncontents[key][subkey]:
                 case 1:
@@ -91,7 +109,6 @@ async def relationLogic(inter, role1: disnake.Role, role2: disnake.Role, relatio
     match relationclass:
         case 1:
             await updateRole(role2, jsoncontents=j)
-
 
 
 def findRole(inter, roleid: str):

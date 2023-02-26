@@ -1,3 +1,4 @@
 /.env
 guilds/*
 .idea/*
+.DS_Store

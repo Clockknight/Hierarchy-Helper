@@ -226,33 +226,38 @@ async def updateRole(role, member=None, jsoncontents=None):
     if key not in list(jsoncontents.keys()):
         return
 
-    for targetmember in member:
-        addroles = []
-        removeroles = []
-        rolepresent = True if role in targetmember.roles else False
-        for roleid in jsoncontents[key]:
-            targetrole = guild.get_role(int(roleid))
-            targetrolepresent = True if targetrole in targetmember.roles else False
-            match jsoncontents[key][roleid], rolepresent, targetrolepresent:
+    for target_member in member:
+        roles_to_add = []
+        roles_to_remove = []
+        roles_present = True if role in target_member.roles else False
+        for role_id in jsoncontents[key]:
+            target_role = guild.get_role(int(role_id))
+            target_role_is_present = True if target_role in target_member.roles else False
+            match jsoncontents[key][role_id], roles_present, target_role_is_present:
                 # Child of hierarchy, parent present, child missing
                 case 1, True, False:
-                    addroles.append(targetrole)
+                    roles_to_add.append(target_role)
                 # Parent of hierarchy, parent missing, child present
                 case 2, False, True:
-                    removeroles.append(targetrole)
+                    roles_to_remove.append(target_role)
 
         print('\n\nChanging roles\n{}'.format(guild))
-        if addroles:
-            print(addroles)
-            for role in addroles:
-                await targetmember.add_roles(role)
-        if removeroles:
-            print(removeroles)
-            for role in removeroles:
-                await targetmember.remove_roles(role)
+        if roles_to_add:
+            print(roles_to_add)
+            for role in roles_to_add:
+                await target_member.add_roles(role)
+        if roles_to_remove:
+            print(roles_to_remove)
+            for role in roles_to_remove:
+                await target_member.remove_roles(role)
 
     # TODO make a two part function that removes a specific role-to-role function
     # put considerations for symmetrical relations
+
+    # TODO Define below heirarchy behavior
+    # TODO make a inverse heirarchy. Gotta get rid of those beginner roles.
+    # TODO make a disagreement heirarchy. Smash != FGC
+    # Could make a kmap or something
 
 
 bot.run(TOKEN)

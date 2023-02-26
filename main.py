@@ -9,7 +9,7 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 intents = disnake.Intents(message_content=True, members=True, guilds=True)
 bot = commands.Bot(intents=intents, command_prefix='$', sync_commands_debug=True)
 
-helpstr = open('.\\assets\\help.txt', 'r').read()
+helpstr = open(os.path.join('.', 'assets', 'help.txt'), 'r').read()
 
 
 # TODO update message as it iterates through users when initially creating hierarchy
@@ -25,8 +25,10 @@ async def hierarchyupdate(inter):
             for userindex, user in enumerate(inter.guild.members):
                 await inter.edit_original_message(
                     content="Okay! Updating {}, role #{} out of {} roles in hierarchies on the server."
-                            "\nCurrently processing user {}, #{} out of {}".format(role.mention, roleindex+1, rolecount,
-                            user.mention, userindex+1, len(inter.guild.members)))
+                            "\nCurrently processing user {}, #{} out of {}".format(role.mention, roleindex + 1,
+                                                                                   rolecount,
+                                                                                   user.mention, userindex + 1,
+                                                                                   len(inter.guild.members)))
                 await updateRole(role)
         await inter.edit_original_message(content="Okay! Done updating all {} hierarchied roles on the server!"
                                                   "".format(rolecount))

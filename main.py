@@ -3,68 +3,72 @@ from dotenv import load_dotenv
 import json
 import disnake
 from disnake.ext import commands
+from relationships import Relation
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 intents = disnake.Intents(message_content=True, members=True, guilds=True)
 bot = commands.Bot(intents=intents, command_prefix='$', sync_commands_debug=True)
 
-helpstr = open(os.path.join('.', 'assets', 'help.txt'), 'r').read()
+help_str = open(os.path.join('.', 'assets', 'help.txt'), 'r').read()
 
 
 # TODO update message as it iterates through users when initially creating hierarchy
 @bot.slash_command(description="Apply any existing hierarchies! They may not get applied when first described.",
                    dm_permission=False)
-async def hierarchyupdate(inter):
+async def HierarchyUpdate(inter):
     await inter.response.send_message("Okay! Updating roles...")
-    jsoncontents = readJson(inter.guild.id)[0]
-    rolecount = len(jsoncontents)
-    if rolecount:
-        for roleindex, role in enumerate(jsoncontents.keys()):
+    json_contents = readJson(inter.guild.id)[0]
+    role_count = len(json_contents)
+    if role_count:
+        for role_index, role in enumerate(json_contents.keys()):
             role = findRole(inter, role)
-            for userindex, user in enumerate(inter.guild.members):
+            for user_index, user in enumerate(inter.guild.members):
                 await inter.edit_original_message(
                     content="Okay! Updating {}, role #{} out of {} roles in hierarchies on the server."
-                            "\nCurrently processing user {}, #{} out of {}".format(role.mention, roleindex + 1,
-                                                                                   rolecount,
-                                                                                   user.mention, userindex + 1,
+                            "\nCurrently processing user {}, #{} out of {}".format(role.mention, role_index + 1,
+                                                                                   role_count,
+                                                                                   user.mention, user_index + 1,
                                                                                    len(inter.guild.members)))
-                await updateRole(role)
+                await UpdateRole(role)
         await inter.edit_original_message(content="Okay! Done updating all {} hierarchied roles on the server!"
-                                                  "".format(rolecount))
+                                                  "".format(role_count))
     else:
         await inter.edit_original_message(content="Sorry! No hierarchies to update on the server!")
 
 
 # TODO option to add list of roles in either argument
 @bot.slash_command(description="Makes a hierarchy between the parent and child role.", dm_permission=False)
-async def hierarchycreate(inter, parent_role: disnake.Role, child_role: disnake.Role):
+async def HierarchyCreate(inter, parent_role: disnake.Role, child_role: disnake.Role):
     if inter.user.guild_permissions.administrator:
         await relationLogic(inter, child_role, parent_role, 1)
     else:
         await inter.response.send_message("Sorry! You're not an admin, and therefore cannot create that hierarchy!")
 
 
+# TODO Make functions for disassociate and associate
+
+
 @bot.slash_command(description="Confused? Use this command if you're not sure how this works.", dm_permission=True)
-async def hierarchyhelp(inter):
-    await directmessageuser(inter, helpstr)
+async def HierarchyHelp(inter):
+    await directmessageuser(inter, help_str)
 
 
 @bot.slash_command(description="Show all of the hierarchies between roles on the server", dm_permission=False)
-async def hierarchydisplay(inter):
+async def HierarchyDisplay(inter):
     result = '***Printing all the hierarchies on {}:***\n\n'.format(inter.guild)
-    jsoncontents = readJson(inter.guild.id)[0]
-    keys = jsoncontents.keys()
+    json_contents = readJson(inter.guild.id)[0]
+    keys = json_contents.keys()
     for key in keys:
         keyHierarchies = ''
         children = ''
         parents = ''
         keyHierarchies += '*{} Hierarchies* ---\n'.format(findRole(inter, key).name)
-        if not jsoncontents[key].keys():
+        if not json_contents[key].keys():
             result = 'Sorry! No hierarchies are stored for this server yet!{}**===============**\n'.format(
                 keyHierarchies)
-        for subkey in jsoncontents[key].keys():
-            match jsoncontents[key][subkey]:
+        for subkey in json_contents[key].keys():
+            match json_contents[key][subkey]:
                 case 1:
                     parents += '*{}*\n'.format(findRole(inter, subkey).name)
                 case 2:
@@ -88,21 +92,21 @@ async def directmessageuser(inter, message):
 
 
 @bot.event
-async def on_member_update(before, after, newRole=None):
+async def on_member_update(before, after, new_role=None):
     if len(before.roles) < len(after.roles):
-        newRole = next(role for role in after.roles if role not in before.roles)
+        new_role = next(role for role in after.roles if role not in before.roles)
     elif len(before.roles) > len(after.roles):
-        newRole = next(role for role in before.roles if role not in after.roles)
-    if newRole is not None:
-        await updateRole(newRole, after)
+        new_role = next(role for role in before.roles if role not in after.roles)
+    if new_role is not None:
+        await UpdateRole(new_role, after)
 
 
-async def relationLogic(inter, role1: disnake.Role, role2: disnake.Role, relationclass: int):
+async def relationLogic(inter, role1: disnake.Role, role2: disnake.Role, relation_class: int):
     """Whenever one of the slash commands for defining roles is called, this function processes the actual logic
     of storing all the information, since each one is essentially the same process.
     """
     # Probably looking for admin perms + ability to assign/remove roles
-    j = relationDefine(inter.channel.guild.id, role1, role2, relationclass)
+    j = RelationDefine(inter.channel.guild.id, role1, role2, relation_class)
     if not j:
         await inter.response.send_message('Sorry! The relation was not able to be saved.')
 
@@ -111,41 +115,49 @@ async def relationLogic(inter, role1: disnake.Role, role2: disnake.Role, relatio
 
     await inter.response.send_message(status)
 
-    match relationclass:
+    match relation_class:
         case 1:
-            await updateRole(role2, jsoncontents=j)
+            await UpdateRole(role2, json_contents=j)
 
 
-def findRole(inter, roleid: str):
+def findRole(inter, role_id: str):
     """Given command context and the string of a role, return the value given if it matches a role on the server.
     Else, return an empty string."""
     try:
-        if roleid[0] == '<':
-            roleid = roleid[3:-1]
-        roleid = int(roleid)
-        return inter.guild.get_role(roleid)
+        if role_id[0] == '<':
+            role_id = role_id[3:-1]
+        role_id = int(role_id)
+        return inter.guild.get_role(role_id)
     except ValueError:
         return None
 
 
-def checkRelationParadox(relation):
+def RelationCausesLoops(relation):
     """Return true if a paradox is detected.
     Else, return false.
     """
-    # TODO implement checking for paradoxes
+    # TODO implement checking for loops
+
+    # TODO What loops could exist?
+    # Disassociating in an odd numbered circle
+    # Child and Parent of the same heirarchy
+    # Associating and disassociating
     print(relation)
 
 
-def relationDefine(guildid, role1, role2, relationid: int):
+def RelationDefine(guildid, role1, role2, relation_id: int):
     """Given two roles, the ID of the relation to be established and the guild they're in:
     Define a dict object describing the relation, run it through checkRelationParadox()
 
     If either relation would cause a paradox
     Otherwise,
     """
-    relation = {str(role1.id): {str(role2.id): relationid}}
-    converse = {str(role2.id): {str(role1.id): relationid + 1}}
-    if checkRelationParadox(relation) or checkRelationParadox(converse):
+    relation = {str(role1.id): {str(role2.id): relation_id}}
+    if relation_id in Relation:
+        converse = {str(role2.id): {str(role1.id): relation_id + 1}}
+
+
+    if RelationCausesLoops(relation) or RelationCausesLoops(converse):
         return False
     # Call readjson to get information about server relations
     jsoncontents, jsondir = readJson(guildid)
@@ -153,7 +165,7 @@ def relationDefine(guildid, role1, role2, relationid: int):
     return updateJson(converse, updateJson(relation, jsoncontents, jsondir), jsondir)
 
 
-def updateJson(newrelation, jsoncontents, jsondir):
+def updateJson(newrelation, json_contents, jsondir):
     """Given the id of a guild and a dictionary object that represents a new relation between two roles:
     Ensure no paradox is created, with checkRelationParadox(),
     then update the json file with the dictionary object.
@@ -162,20 +174,20 @@ def updateJson(newrelation, jsoncontents, jsondir):
 
     # Get the key from the new relation and the stored relations
     key = list(newrelation.keys())[0]
-    keys = list(jsoncontents.keys())
+    keys = list(json_contents.keys())
 
     # Check if role has already been interacted with role
     if key in keys:
-        jsoncontents[key].update(newrelation[key])
+        json_contents[key].update(newrelation[key])
     # If the key from new relation doesn't already exist, update the whole json instead
     else:
-        jsoncontents.update(newrelation)
+        json_contents.update(newrelation)
 
     f = open(jsondir, 'w')
-    f.write(json.dumps(jsoncontents, indent=4))
+    f.write(json.dumps(json_contents, indent=4))
     f.close()
 
-    return jsoncontents
+    return json_contents
 
 
 def readJson(gid):
@@ -205,7 +217,7 @@ def readJson(gid):
     return jsoncontents, jsondir
 
 
-async def updateRole(role, member=None, jsoncontents=None):
+async def UpdateRole(recent_role, member=None, json_contents=None):
     """Given a role, update it to follow all relations stored in the guild specific JSON
     member, is member object to update.
 
@@ -213,51 +225,68 @@ async def updateRole(role, member=None, jsoncontents=None):
     jsoncontents, must be a dict of the guild-specific json. If not provided, then readJson() is called.
     """
 
-    key = str(role.id)
-    guild = role.guild
+    key = str(recent_role.id)
+    guild = recent_role.guild
     if member is None:
         member = guild.members
     else:
         member = [member]
 
-    if jsoncontents is None:
-        jsoncontents = readJson(guild.id)[0]
+    if json_contents is None:
+        json_contents = readJson(guild.id)[0]
 
-    if key not in list(jsoncontents.keys()):
+    if key not in list(json_contents.keys()):
         return
 
     for target_member in member:
         roles_to_add = []
         roles_to_remove = []
-        roles_present = True if role in target_member.roles else False
-        for role_id in jsoncontents[key]:
+        recent_role_is_present = True if recent_role in target_member.roles else False
+        for role_id in json_contents[key]:
             target_role = guild.get_role(int(role_id))
             target_role_is_present = True if target_role in target_member.roles else False
-            match jsoncontents[key][role_id], roles_present, target_role_is_present:
-                # Child of hierarchy, parent present, child missing
-                case 1, True, False:
+            match json_contents[key][role_id], recent_role_is_present, target_role_is_present:
+                # Child of hierarchy:
+                # parent present, child missing
+                case Relation.Child, True, False:
                     roles_to_add.append(target_role)
-                # Parent of hierarchy, parent missing, child present
-                case 2, False, True:
+
+                # Parent of hierarchy:
+                # parent missing, child present
+                case Relation.Parent, False, True:
                     roles_to_remove.append(target_role)
+
+                case Relation.Associated, True, False:
+                    roles_to_add.append(target_role)
+                case Relation.Associated, False, True:
+                    roles_to_add.append(recent_role)
+
+                case Relation.Disassociated, True, True:
+                    roles_to_remove.append(target_role)
+                case Relation.Disassociated, False, False:
+                    roles_to_add.append(target_role)
 
         print('\n\nChanging roles\n{}'.format(guild))
         if roles_to_add:
             print(roles_to_add)
-            for role in roles_to_add:
-                await target_member.add_roles(role)
+            for recent_role in roles_to_add:
+                await target_member.add_roles(recent_role)
         if roles_to_remove:
             print(roles_to_remove)
-            for role in roles_to_remove:
-                await target_member.remove_roles(role)
+            for recent_role in roles_to_remove:
+                await target_member.remove_roles(recent_role)
 
     # TODO make a two part function that removes a specific role-to-role function
     # put considerations for symmetrical relations
 
-    # TODO Define below heirarchy behavior
-    # TODO make a inverse heirarchy. Gotta get rid of those beginner roles.
-    # TODO make a disagreement heirarchy. Smash != FGC
+    # TODO make a inverse hierarchy. Gotta get rid of those beginner roles.
+    # 10 -> 11 = 01
+    # 01 -> 11 = 10
+    # 10 -> 00 = 00
     # Could make a kmap or something
+
+    # TODO use an enum instead of ints so everything is readable
+    # could use strings too but enums are better for storage
 
 
 bot.run(TOKEN)

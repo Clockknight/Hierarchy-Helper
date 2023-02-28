@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 import json
 import disnake
 from disnake.ext import commands
-from relationships import Relation
+from relationships import *
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -14,9 +14,8 @@ help_str = open(os.path.join('.', 'assets', 'help.txt'), 'r').read()
 
 
 # TODO update message as it iterates through users when initially creating hierarchy
-@bot.slash_command(description="Apply any existing hierarchies! They may not get applied when first described.",
-                   dm_permission=False)
-async def HierarchyUpdate(inter):
+@bot.slash_command(description="Apply any existing hierarchies! They may not get applied when first described.", dm_permission=False)
+async def updateheirarchy(inter):
     await inter.response.send_message("Okay! Updating roles...")
     json_contents = readJson(inter.guild.id)[0]
     role_count = len(json_contents)
@@ -39,9 +38,9 @@ async def HierarchyUpdate(inter):
 
 # TODO option to add list of roles in either argument
 @bot.slash_command(description="Makes a hierarchy between the parent and child role.", dm_permission=False)
-async def HierarchyCreate(inter, parent_role: disnake.Role, child_role: disnake.Role):
+async def createheirarchy(inter, parent_role: disnake.Role, child_role: disnake.Role):
     if inter.user.guild_permissions.administrator:
-        await relationLogic(inter, child_role, parent_role, 1)
+        await relationLogic(inter, child_role, parent_role, Relation.Child)
     else:
         await inter.response.send_message("Sorry! You're not an admin, and therefore cannot create that hierarchy!")
 
@@ -50,12 +49,12 @@ async def HierarchyCreate(inter, parent_role: disnake.Role, child_role: disnake.
 
 
 @bot.slash_command(description="Confused? Use this command if you're not sure how this works.", dm_permission=True)
-async def HierarchyHelp(inter):
-    await directmessageuser(inter, help_str)
+async def helpheirarchy(inter):
+    await DirectMessageUser(inter, help_str)
 
 
 @bot.slash_command(description="Show all of the hierarchies between roles on the server", dm_permission=False)
-async def HierarchyDisplay(inter):
+async def displayheirarchy(inter):
     result = '***Printing all the hierarchies on {}:***\n\n'.format(inter.guild)
     json_contents = readJson(inter.guild.id)[0]
     keys = json_contents.keys()
@@ -79,16 +78,7 @@ async def HierarchyDisplay(inter):
             keyHierarchies += '**Parent roles**:\n' + parents
         result += '{}\n**===============**\n\n'.format(keyHierarchies)
 
-    await directmessageuser(inter, result[:-21])
-
-
-async def directmessageuser(inter, message):
-    directmessage = inter.user.dm_channel
-    if not directmessage:
-        directmessage = await inter.user.create_dm()
-    await inter.response.defer()
-    await inter.delete_original_message()
-    await directmessage.send(message)
+    await DirectMessageUser(inter, result[:-21])
 
 
 @bot.event
@@ -99,6 +89,17 @@ async def on_member_update(before, after, new_role=None):
         new_role = next(role for role in before.roles if role not in after.roles)
     if new_role is not None:
         await UpdateRole(new_role, after)
+
+
+async def DirectMessageUser(inter, message):
+    directmessage = inter.user.dm_channel
+    if not directmessage:
+        directmessage = await inter.user.create_dm()
+    await inter.response.defer()
+    await inter.delete_original_message()
+    await directmessage.send(message)
+
+
 
 
 async def relationLogic(inter, role1: disnake.Role, role2: disnake.Role, relation_class: int):
@@ -155,7 +156,6 @@ def RelationDefine(guildid, role1, role2, relation_id: int):
     relation = {str(role1.id): {str(role2.id): relation_id}}
     if relation_id in Relation:
         converse = {str(role2.id): {str(role1.id): relation_id + 1}}
-
 
     if RelationCausesLoops(relation) or RelationCausesLoops(converse):
         return False
@@ -285,8 +285,10 @@ async def UpdateRole(recent_role, member=None, json_contents=None):
     # 10 -> 00 = 00
     # Could make a kmap or something
 
-    # TODO use an enum instead of ints so everything is readable
-    # could use strings too but enums are better for storage
+
+    # TODO make an need/needed heirarchy. Get rid of roles when their children are gone
+
+
 
 
 bot.run(TOKEN)

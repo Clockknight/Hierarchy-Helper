@@ -286,7 +286,9 @@ async def UpdateRole(recent_role, member=None, json_contents=None):
     # Could make a kmap or something
 
 
-    # TODO make an need/needed heirarchy. Get rid of roles when their children are gone
+    # TODO make an need/needed heirarchy. Get rid of roles when all of their children are gone
+    # 111 -> 100 = 000
+    # 111 -> 110 = 110
 
 
 
